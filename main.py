@@ -20,4 +20,4 @@ async def solve_captcha(data: CaptchaRequest):
         return {"status":"success","captch_text":captcha_text}
     
     except Exception as e:
-        raise HTTPEception(status_code=400,detail=str(e))
+        raise HTTPException(status_code=400,detail=str(e))
