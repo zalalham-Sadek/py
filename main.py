@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 import ddddocr
 import base64
 
@@ -32,29 +32,29 @@ class PDFRequest(BaseModel):
 @app.post("/generate-pdf")
 async def generate_pdf(data: PDFRequest):
     try:
-        with sync_playwright() as p:
+        async with async_playwright() as p:
             # 1. تشغيل متصفح خفي ذكي
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context()
+            browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context()
             
             # 2. حقن الكوكيز الخاصة بلارافيل لكي يفتح الصفحة كأنه نفس المستخدم
-            context.add_cookies([
+            await context.add_cookies([
                 {"name": k, "value": v, "domain": "the-external-website.com", "path": "/"}
                 for k, v in data.cookies.items()
             ])
             
-            page = context.new_page()
+            page = await context.new_page()
             
             # 3. الانتقال لصفحة النتيجة والانتظار حتى تحميل كافة التنسيقات والخطوط تماماً
-            page.goto(data.url, wait_until="networkidle")
+            await page.goto(data.url, wait_until="networkidle")
             
             # 💡 (اختياري) يمكنك حذف الهيدر والفوتر مباشرة من هنا قبل التوليد بمتصفح بايثون
-            page.evaluate("document.querySelector('header')?.remove();")
-            page.evaluate("document.querySelector('footer')?.remove();")
+            await page.evaluate("document.querySelector('header')?.remove();")
+            await page.evaluate("document.querySelector('footer')?.remove();")
             
             # 4. حفظ الصفحة كـ PDF رسمي بالتنسيق والألوان الأصلية
-            pdf_bytes = page.pdf(format="A4", print_background=True, margin={"top": "0.2in", "bottom": "0.2in"})
-            browser.close()
+            pdf_bytes =  await page.pdf(format="A4", print_background=True, margin={"top": "0.2in", "bottom": "0.2in"})
+            await browser.close()
             
             # 5. تشفير الملف وإرساله للارافيل
             pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
