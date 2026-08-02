@@ -24,39 +24,29 @@ async def solve_captcha(data: CaptchaRequest):
         raise HTTPException(status_code=400,detail=str(e))
 
 
-
-class PDFRequest(BaseModel):
-    url: str
-    cookies: dict
+# تأكد من إضافة هذا النموذج لاستلام النص
+class HTMLPDFRequest(BaseModel):
+    html_content: str
 
 @app.post("/generate-pdf")
-async def generate_pdf(data: PDFRequest):
+async def generate_pdf(data: HTMLPDFRequest):
     try:
         async with async_playwright() as p:
-            # 1. تشغيل متصفح خفي ذكي
             browser = await p.chromium.launch(headless=True)
             context = await browser.new_context()
-            
-            # 2. حقن الكوكيز الخاصة بلارافيل لكي يفتح الصفحة كأنه نفس المستخدم
-            await context.add_cookies([
-                {"name": k, "value": v, "domain": "the-external-website.com", "path": "/"}
-                for k, v in data.cookies.items()
-            ])
-            
             page = await context.new_page()
             
-            # 3. الانتقال لصفحة النتيجة والانتظار حتى تحميل كافة التنسيقات والخطوط تماماً
-            await page.goto(data.url, wait_until="networkidle")
+            # 🌟 حقن كود الـ HTML للنتيجة مباشرة داخل المتصفح الخفي دون الحاجة لزيارة الموقع
+            await page.set_content(data.html_content, wait_until="networkidle")
             
-            # 💡 (اختياري) يمكنك حذف الهيدر والفوتر مباشرة من هنا قبل التوليد بمتصفح بايثون
+            # (اختياري) حذف الهيدر والفوتر إن رغبت من النتيجة
             await page.evaluate("document.querySelector('header')?.remove();")
             await page.evaluate("document.querySelector('footer')?.remove();")
             
-            # 4. حفظ الصفحة كـ PDF رسمي بالتنسيق والألوان الأصلية
-            pdf_bytes =  await page.pdf(format="A4", print_background=True, margin={"top": "0.2in", "bottom": "0.2in"})
+            # حفظ المستند الحقيقي كـ PDF بالتنسيق والألوان الرسمية
+            pdf_bytes = await page.pdf(format="A4", print_background=True, margin={"top": "0.1in", "bottom": "0.1in"})
             await browser.close()
             
-            # 5. تشفير الملف وإرساله للارافيل
             pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
             return {"status": "success", "pdf_content": pdf_base64}
             
